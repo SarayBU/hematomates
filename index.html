@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="gl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hematomates · simula o sangue</title>
+<meta name="description" content="Simula o fluxo do sangue nun vaso elástico e compara a solución numérica coa exacta.">
+<style>
+  :root {
+    --bg: #fbf8f6; --card: #ffffff; --ink: #1f2228; --muted: #5a6070; --line: #e4dcd8;
+    --blood: #8f0000; --blood-soft: #e8b4b0; --exact: #1f2228; --accent: #8f0000;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171b; --card: #1f2127; --ink: #eceef2; --muted: #a3a8b4; --line: #343741;
+      --blood: #e0574f; --blood-soft: #6b2422; --exact: #eceef2; --accent: #ff7a70;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 16px/1.45 "Source Sans 3", "Segoe UI", Roboto, Arial, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 16px 16px 40px; }
+  .kicker { margin: 0; color: var(--accent); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+            font-size: 13px; }
+  h1 { margin: 2px 0 8px; font-size: 26px; line-height: 1.15; }
+  h2 { font-size: 19px; margin: 0 0 8px; }
+  .lead { margin: 0 0 14px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-bottom: 14px; }
+  figure { margin: 0 0 10px; }
+  figcaption { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); margin-bottom: 2px; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+  canvas { display: block; width: 100%; }
+  #vessel { height: 110px; }
+  .plot { height: 170px; }
+  .legend { display: flex; gap: 16px; align-items: center; font-size: 14px; color: var(--muted); margin: 0; }
+  .legend i { display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .l-exact { width: 22px; height: 0; border-top: 2px solid var(--exact); }
+  .l-num { width: 8px; height: 8px; border-radius: 50%; background: var(--blood); }
+  #msg { min-height: 1.4em; margin: 8px 0 0; font-weight: 600; color: var(--accent); }
+  label { display: block; margin-bottom: 12px; font-weight: 600; }
+  label output { float: right; font-weight: 400; color: var(--muted); }
+  select, input[type=range] { display: block; width: 100%; margin-top: 4px; }
+  select { font: inherit; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); }
+  input[type=range] { accent-color: var(--blood); height: 28px; }
+  .buttons { display: flex; gap: 10px; }
+  button { flex: 1; font: inherit; font-weight: 700; padding: 12px; border-radius: 10px; cursor: pointer;
+           border: 1px solid var(--blood); background: var(--blood); color: #fff; }
+  button.secondary { background: transparent; color: var(--blood); }
+  .about p { margin: 0 0 8px; }
+  footer { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="kicker">Hematomates</p>
+    <h1>Proba ti a simular o sangue</h1>
+    <p class="lead">Un vaso sanguíneo elástico, en 1D. No instante inicial a área e a velocidade dan un salto:
+      un <b>problema de Riemann</b>. Compara a solución numérica (puntos) coa exacta (liña).</p>
+  </header>
+
+  <section class="card" aria-label="Resultados">
+    <figure>
+      <figcaption><b>O vaso</b><span id="time">t = 0,0 ms</span></figcaption>
+      <canvas id="vessel" aria-label="Contorno do vaso"></canvas>
+    </figure>
+    <figure>
+      <figcaption><b>Área A/A<sub>0</sub></b></figcaption>
+      <canvas id="plotA" class="plot" aria-label="Área relativa ao longo do vaso"></canvas>
+    </figure>
+    <figure>
+      <figcaption><b>Velocidade u (m/s)</b><span>posición x (m)</span></figcaption>
+      <canvas id="plotU" class="plot" aria-label="Velocidade ao longo do vaso"></canvas>
+    </figure>
+    <p class="legend"><span><i class="l-exact"></i>exacta</span><span><i class="l-num"></i>numérica</span></p>
+    <p id="msg" role="status"></p>
+  </section>
+
+  <section class="card" aria-label="Parámetros">
+    <label>Problema <select id="rp"></select></label>
+    <label>Fluxo numérico
+      <select id="flux">
+        <option value="godunov">Godunov exacto</option>
+        <option value="lax-friedrichs">Lax–Friedrichs</option>
+        <option value="force">FORCE</option>
+      </select>
+    </label>
+    <label>Número de celas <output id="ncOut"></output>
+      <input type="range" id="nc" min="25" max="400" step="25" value="100">
+    </label>
+    <label>CFL <output id="cflOut"></output>
+      <input type="range" id="cfl" min="0.1" max="2" step="0.05" value="0.9">
+    </label>
+    <div class="buttons">
+      <button id="play">▶ Simular</button>
+      <button id="reset" class="secondary">Reiniciar</button>
+    </div>
+  </section>
+
+  <section class="card about">
+    <h2>Que podes probar?</h2>
+    <p><b>Número de celas.</b> Con máis celas a solución numérica achégase á exacta, pero hai que facer máis contas.</p>
+    <p><b>CFL.</b> Fixa o paso de tempo. Se CFL &gt; 1, nun paso a información salta máis dunha cela e o esquema
+      explota. Próbao!</p>
+    <p><b>Fluxo numérico.</b> Godunov resolve exactamente un problema de Riemann en cada fronteira entre celas;
+      Lax–Friedrichs e FORCE son máis baratos, pero suavizan máis os saltos.</p>
+    <p><b>Colapso.</b> No centro a área case se anula: alí a velocidade u = q/A está mal definida e a numérica
+      sepárase da exacta.</p>
+    <p>Modelo: conservación da masa e balance do momento cunha lei do tubo elástica, sen rozamento. Método:
+      volumes finitos explícito con condicións de contorno transparentes.</p>
+  </section>
+
+  <footer>Charla «Hematomates», Matemáticas, habelas hainas 2026 · Facultade de Matemáticas, USC.
+    Código baseado no de S. Busto (MATLAB).</footer>
+</main>
+<script src="js/blood1d.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

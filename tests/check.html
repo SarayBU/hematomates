@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>blood1d.js checks</title>
+<style>body { font: 15px/1.5 monospace; margin: 16px; } .ok { color: #176b2c; } .fail { color: #a00; }</style>
+</head>
+<body>
+<h1>blood1d.js against python/blood1d.py</h1>
+<pre id="out"></pre>
+<script src="../js/blood1d.js"></script>
+<script src="ref.js"></script>
+<script>
+// Compare the JavaScript port with the Python reference (tests/make_ref.py) case by case.
+const out = document.getElementById("out");
+const results = [];
+function report(ok, msg) {
+  results.push(ok);
+  const s = document.createElement("span");
+  s.className = ok ? "ok" : "fail";
+  s.textContent = `[${ok ? "OK" : "FAIL"}] ${msg}\n`;
+  out.appendChild(s);
+}
+// Largest difference relative to the scale of the reference values (a0 for A, max |u| for u).
+function maxDiff(a, b, scale) {
+  let d = 0;
+  for (let i = 0; i < b.length; i++) {
+    if (b[i] === null || !isFinite(a[i])) { if (b[i] !== null || isFinite(a[i])) return Infinity; continue; }
+    d = Math.max(d, Math.abs(a[i] - b[i]) / scale);
+  }
+  return d;
+}
+const TOL = 1e-6;
+for (const r of REF) {
+  const t0 = performance.now();
+  const s = Blood1D.run(r.rp, r.ncells, r.CFL, r.flux);
+  const ms = performance.now() - t0;
+  const label = `RP${r.rp} ${Blood1D.PROBLEMS[r.rp].name}, ${r.flux}, CFL ${r.CFL}`;
+  const u = s.velocity(), ex = s.exact();
+  const uScale = Math.max(1e-3, ...r.u.filter(z => z !== null).map(Math.abs));
+  const dA = maxDiff(s.A, r.A, r.a0), du = maxDiff(u, r.u, uScale);
+  const dAe = maxDiff(ex.A, r.Aexact, r.a0), due = maxDiff(ex.u, r.uexact, uScale);
+  const sameSteps = s.n === r.n && Math.abs(s.t - r.t) < 1e-12;
+  const ok = sameSteps && dA < TOL && du < TOL && dAe < TOL && due < TOL;
+  report(ok, `${label}: steps ${s.n}/${r.n}, max diff A ${dA.toExponential(1)}, u ${du.toExponential(1)},`
+    + ` exact A ${dAe.toExponential(1)}, exact u ${due.toExponential(1)} (${ms.toFixed(0)} ms)`);
+}
+const nfail = results.filter(x => !x).length;
+document.title = nfail ? `FAIL (${nfail})` : "ALL OK";
+</script>
+</body>
+</html>
