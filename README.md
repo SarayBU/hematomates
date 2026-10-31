@@ -26,3 +26,7 @@ python -m http.server 8000
 ```
 
 e abrir `http://localhost:8000/` (as comprobacións, en `http://localhost:8000/tests/check.html`).
+
+## Licenza
+
+GNU Affero General Public License v3.0 (ver [LICENSE](LICENSE)).
