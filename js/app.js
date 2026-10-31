@@ -17,7 +17,7 @@
     el.rp.appendChild(o);
   }
 
-  let sim, xFine, ranges, playing = false, simElapsed = 0, lastFrame = 0;
+  let sim, xFine, ranges, playing = false, looping = false, simElapsed = 0, lastFrame = 0;
 
   // Axis ranges from the initial states and the exact solution at the final time, so that they stay fixed.
   function computeRanges(s) {
@@ -48,7 +48,7 @@
   }
 
   function frame(now) {
-    if (!playing) return;
+    if (!playing) { looping = false; return; }
     simElapsed += Math.min(now - lastFrame, 100);
     lastFrame = now;
     const target = sim.tEnd * Math.min(1, simElapsed / DURATION);
@@ -57,6 +57,7 @@
     if (sim.done()) {
       playing = false;
       el.play.textContent = "↺ Repetir";
+      looping = false;
       if (sim.blownUp) {
         el.msg.textContent = sim.CFL > 1
           ? `O esquema explotou no paso ${sim.n}: con CFL > 1 non é estable.`
@@ -67,11 +68,27 @@
     requestAnimationFrame(frame);
   }
 
+  // On a phone the plots may be scrolled out of view when the simulation starts: bring them back first.
+  function showResults() {
+    const card = el.vessel.closest("section"), r = card.getBoundingClientRect();
+    const bar = el.play.parentElement.getBoundingClientRect().height;
+    if (r.top >= 0 && r.bottom <= window.innerHeight - bar) return 0;
+    card.scrollIntoView({ behavior: "smooth", block: "start" });
+    return 500;
+  }
+
   el.play.addEventListener("click", () => {
     if (sim.done()) reset();
     playing = !playing;
     el.play.textContent = playing ? "❚❚ Pausa" : "▶ Seguir";
-    if (playing) { lastFrame = performance.now(); requestAnimationFrame(frame); }
+    if (playing) {
+      setTimeout(() => {
+        if (!playing || looping) return;
+        looping = true;
+        lastFrame = performance.now();
+        requestAnimationFrame(frame);
+      }, showResults());
+    }
   });
   el.reset.addEventListener("click", reset);
   for (const c of [el.rp, el.flux, el.nc, el.cfl]) c.addEventListener("input", reset);
@@ -120,7 +137,10 @@
     if (showX) {
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      for (const x of niceTicks(xr[0], xr[1], 4)) ctx.fillText(fmt(x, 2), X(x), h - Bm + 5);
+      for (const x of niceTicks(xr[0], xr[1], 4)) {
+        const label = fmt(x, 2), half = ctx.measureText(label).width / 2;
+        ctx.fillText(label, Math.min(X(x), w - half - 1), h - Bm + 5);
+      }
     }
     ctx.save();
     ctx.beginPath(); ctx.rect(L, T, w - L - R, h - T - Bm); ctx.clip();
